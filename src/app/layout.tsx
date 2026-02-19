@@ -18,7 +18,14 @@ export const metadata: Metadata = {
   title: "Hills-and-partners AI",
   description: "Cyberpunk Web Registration Console connected to n8n",
   applicationName: "Hills-and-partners AI",
+
   themeColor: "#070018",
+
+  icons: {
+    icon: "/icon.png",
+    shortcut: "/icon.png",
+    apple: "/icon.png",
+  },
 };
 
 export default function RootLayout({
@@ -27,13 +34,11 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="ja" className="dark">
+    <html lang="ja">
       <body
         className={`
           ${geistSans.variable}
           ${geistMono.variable}
-          bg-black
-          text-white
           antialiased
           min-h-screen
         `}

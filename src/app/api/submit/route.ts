@@ -1,5 +1,11 @@
 import { NextResponse } from "next/server";
 
+type SubmitPayload = {
+  title?: string;
+  links?: string[];
+  links_count?: number;
+};
+
 type JsonValue =
   | string
   | number
@@ -19,51 +25,26 @@ export async function POST(req: Request) {
   }
 
   try {
-    // ブラウザから来た multipart/form-data を受け取る
-    const incoming = await req.formData();
+    const body = (await req.json()) as SubmitPayload;
 
-    // n8nへ投げる multipart/form-data を組み立て直す
-    // （重要：FormDataはストリーム/環境差があるので“丸投げ”より詰め替えが安全）
-    const outgoing = new FormData();
+    const title = body.title ?? "Hills-and-partners AI";
+    const links = Array.isArray(body.links) ? body.links : [];
+    const links_count =
+      typeof body.links_count === "number" ? body.links_count : links.length;
 
-    // 文字フィールド
-    const passthroughTextKeys = [
-      "title",
-      "links_json",
-      "links_count",
-      "pdf_count",
-      "ctr_count",
-    ] as const;
+    const outgoing = {
+      title,
+      links,
+      links_count,
+      ts: new Date().toISOString(),
+    };
 
-    for (const k of passthroughTextKeys) {
-      const v = incoming.get(k);
-      if (typeof v === "string") outgoing.append(k, v);
-    }
-
-    // PDF（複数）
-    const pdfs = incoming.getAll("pdfs");
-    for (const item of pdfs) {
-      if (item instanceof File) {
-        outgoing.append("pdfs", item, item.name);
-      }
-    }
-
-    // CTR（複数）
-    const ctrs = incoming.getAll("ctrs");
-    for (const item of ctrs) {
-      if (item instanceof File) {
-        outgoing.append("ctrs", item, item.name);
-      }
-    }
-
-    // n8nへ転送
     const res = await fetch(url, {
       method: "POST",
-      body: outgoing,
-      // headersは付けない（fetchがmultipart boundaryを自動で付ける）
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(outgoing),
     });
 
-    // n8nがJSON/テキストどちらで返しても拾う
     const text = await res.text().catch(() => "");
     let parsed: JsonValue | { raw: string } | null = null;
 
@@ -85,9 +66,6 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: true, n8n: parsed }, { status: 200 });
   } catch (e: unknown) {
     const message = e instanceof Error ? e.message : "unknown error";
-    return NextResponse.json(
-      { ok: false, error: message },
-      { status: 500 }
-    );
+    return NextResponse.json({ ok: false, error: message }, { status: 500 });
   }
 }

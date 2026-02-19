@@ -27,8 +27,6 @@ function Badge({ label, value }: { label: string; value: string }) {
 export default function Page() {
   const [links, setLinks] = useState<string[]>([""]);
   const [bulk, setBulk] = useState("");
-  const [pdfFiles, setPdfFiles] = useState<File[]>([]);
-  const [ctrFiles, setCtrFiles] = useState<File[]>([]);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState("");
 
@@ -47,8 +45,6 @@ export default function Page() {
   const clearAll = () => {
     setLinks([""]);
     setBulk("");
-    setPdfFiles([]);
-    setCtrFiles([]);
     setMsg("");
   };
 
@@ -73,29 +69,24 @@ export default function Page() {
     setBusy(true);
 
     try {
-      const fd = new FormData();
-      fd.append("title", "Hills-and-partners AI");
+      const payload = {
+        title: "Hills-and-partners AI",
+        links: dedupedLinks,
+        links_count: dedupedLinks.length,
+      };
 
-      fd.append("links_json", JSON.stringify(dedupedLinks));
-      fd.append("links_count", String(dedupedLinks.length));
+      const res = await fetch("/api/submit", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(payload),
+      });
 
-      fd.append("pdf_count", String(pdfFiles.length));
-      for (const f of pdfFiles) fd.append("pdfs", f, f.name);
-
-      fd.append("ctr_count", String(ctrFiles.length));
-      for (const f of ctrFiles) fd.append("ctrs", f, f.name);
-
-      const res = await fetch("/api/submit", { method: "POST", body: fd });
-      const bodyText = await res.text().catch(() => "");
-
+      const text = await res.text().catch(() => "");
       if (!res.ok) {
-        const m = bodyText ? bodyText.slice(0, 400) : `HTTP ${res.status}`;
-        throw new Error(m);
+        throw new Error(text ? text.slice(0, 400) : `HTTP ${res.status}`);
       }
 
-      setMsg(
-        `送信OK：LINK ${dedupedLinks.length} / PDF ${pdfFiles.length} / CTR ${ctrFiles.length}`
-      );
+      setMsg(`送信OK：LINK ${dedupedLinks.length}`);
     } catch (e: unknown) {
       const m = e instanceof Error ? e.message : "unknown error";
       setMsg(`送信失敗：${m}`);
@@ -120,8 +111,6 @@ export default function Page() {
           <div className="badges">
             <Badge label="mode" value="scan" />
             <Badge label="links" value={String(dedupedLinks.length)} />
-            <Badge label="pdf" value={String(pdfFiles.length)} />
-            <Badge label="ctr" value={String(ctrFiles.length)} />
             <Badge label="rows" value={String(links.length)} />
           </div>
         </div>
@@ -132,7 +121,7 @@ export default function Page() {
             <div>
               <h2 className="h2">target inputs</h2>
               <p className="desc">
-                WebサイトURLとPDF/CTRを登録して、n8nへ送信。URLは自動で正規化・重複排除。
+                WebサイトURLだけ登録して、n8nへ送信。URLは自動で正規化・重複排除。
               </p>
             </div>
 
@@ -146,8 +135,8 @@ export default function Page() {
             </div>
           </div>
 
-          <div className="grid">
-            {/* LEFT */}
+          {/* 1カラム */}
+          <div className="grid" style={{ gridTemplateColumns: "1fr" }}>
             <div className="panel">
               <div
                 style={{
@@ -198,81 +187,8 @@ export default function Page() {
                   </div>
                 ))}
               </div>
-            </div>
 
-            {/* RIGHT */}
-            <div className="panel">
-              {/* PDF */}
-              <div className="smallMono">pdf upload</div>
-              <div className="smallText">複数OK。n8nにそのまま転送。</div>
-
-              <input
-                className="file"
-                type="file"
-                accept="application/pdf"
-                multiple
-                onChange={(e) => setPdfFiles(Array.from(e.target.files ?? []))}
-              />
-
-              <div className="box">
-                <div className="smallMono">selected</div>
-                <div
-                  style={{
-                    marginTop: 8,
-                    fontSize: 13,
-                    color: "rgba(255,255,255,.85)",
-                    wordBreak: "break-word",
-                  }}
-                >
-                  {pdfFiles.length ? pdfFiles.map((f) => f.name).join(" / ") : "PDF未選択"}
-                </div>
-              </div>
-
-              {/* CTR */}
-              <div style={{ marginTop: 14 }}>
-                <div className="smallMono">ctr upload</div>
-                <div className="smallText">
-                  複数OK。拡張子は .ctr / .csv / .txt など想定。
-                </div>
-
-                <input
-                  className="file"
-                  type="file"
-                  multiple
-                  accept=".ctr,.csv,.txt,text/plain,text/csv"
-                  onChange={(e) => setCtrFiles(Array.from(e.target.files ?? []))}
-                />
-
-                <div className="box">
-                  <div className="smallMono">ctr selected</div>
-                  <div
-                    style={{
-                      marginTop: 8,
-                      fontSize: 13,
-                      color: "rgba(255,255,255,.85)",
-                      wordBreak: "break-word",
-                    }}
-                  >
-                    {ctrFiles.length ? ctrFiles.map((f) => f.name).join(" / ") : "CTR未選択"}
-                  </div>
-                </div>
-              </div>
-
-              {/* READY */}
-              <div className="box">
-                <div className="smallMono">ready payload</div>
-                <div
-                  style={{
-                    marginTop: 8,
-                    fontSize: 13,
-                    color: "rgba(255,255,255,.85)",
-                  }}
-                >
-                  LINK: {dedupedLinks.length} / PDF: {pdfFiles.length} / CTR: {ctrFiles.length} / AUTO DEDUPE
-                </div>
-              </div>
-
-              <div className="footerRow">
+              <div className="footerRow" style={{ marginTop: 14 }}>
                 <div className="note">
                   送信はNext.js APIで中継（CORS対策 + URL秘匿）
                 </div>
